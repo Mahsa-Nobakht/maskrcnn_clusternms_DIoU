@@ -250,6 +250,7 @@ class SimpleTrainer(TrainerBase):
         gather_metric_period=1,
         zero_grad_before_forward=False,
         async_write_metrics=False,
+        # gradient_accumulation_steps=2,
     ):
         """
         Args:
@@ -281,6 +282,7 @@ class SimpleTrainer(TrainerBase):
         self.gather_metric_period = gather_metric_period
         self.zero_grad_before_forward = zero_grad_before_forward
         self.async_write_metrics = async_write_metrics
+        # self.gradient_accumulation_steps = gradient_accumulation_steps  # Store the gradient accumulation steps
         # create a thread pool that can execute non critical logic in run_step asynchronically
         # use only 1 worker so tasks will be executred in order of submitting.
         self.concurrent_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -294,6 +296,7 @@ class SimpleTrainer(TrainerBase):
         """
         If you want to do something with the data, you can wrap the dataloader.
         """
+    # for _ in range(self.gradient_accumulation_steps):
         data = next(self._data_loader_iter)
         data_time = time.perf_counter() - start
 

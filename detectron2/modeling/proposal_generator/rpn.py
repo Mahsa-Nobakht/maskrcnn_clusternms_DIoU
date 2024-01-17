@@ -474,8 +474,9 @@ class RPN(nn.Module):
             )
         else:
             losses = {}
+        eps = 0.1 
         proposals = self.predict_proposals(
-            anchors, pred_objectness_logits, pred_anchor_deltas, images.image_sizes
+            anchors, pred_objectness_logits, pred_anchor_deltas, images.image_sizes, eps=eps
         )
         return proposals, losses
 
@@ -485,6 +486,7 @@ class RPN(nn.Module):
         pred_objectness_logits: List[torch.Tensor],
         pred_anchor_deltas: List[torch.Tensor],
         image_sizes: List[Tuple[int, int]],
+        eps: float
     ):
         """
         Decode all the predicted box regression deltas to proposals. Find the top proposals
@@ -509,6 +511,7 @@ class RPN(nn.Module):
                 self.post_nms_topk[self.training],
                 self.min_box_size,
                 self.training,
+                eps = eps
             )
 
     def _decode_proposals(self, anchors: List[Boxes], pred_anchor_deltas: List[torch.Tensor]):

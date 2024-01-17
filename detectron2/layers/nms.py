@@ -4,6 +4,207 @@
 import torch
 from torchvision.ops import boxes as box_ops
 from torchvision.ops import nms  # noqa . for compatibility
+import numpy as np
+
+
+# def cluster_nms(boxes, scores, iou_threshold):
+#     num_boxes = boxes.shape[0]
+#     keep = [1] * num_boxes
+
+#     iou_matrix = torch.zeros((num_boxes, num_boxes))
+#     for i in range(num_boxes):
+#         for j in range(i + 1, num_boxes):
+#             iou = calculate_iou(boxes[i], boxes[j])
+#             iou_matrix[i][j] = iou
+
+#     iou_matrix = torch.triu(iou_matrix, diagonal=1)
+
+#     for t in range(num_boxes):
+#         At = torch.diag(torch.tensor(keep))
+#         Ct = At.mm(iou_matrix)
+
+#         g, _ = Ct.max(dim=1)
+#         bt = (g < iou_threshold).nonzero().squeeze()
+
+#         if torch.equal(bt, torch.tensor(keep)):
+#             t_star = t
+#             break
+
+#         keep = bt
+
+#     return keep
+
+# def calculate_iou(box1, box2):
+#     # Get the coordinates of the intersection rectangle
+#     x1 = max(box1[0], box2[0])
+#     y1 = max(box1[1], box2[1])
+#     x2 = min(box1[2], box2[2])
+#     y2 = min(box1[3], box2[3])
+
+#     # Calculate the area of intersection rectangle
+#     intersection_area = max(0, x2 - x1) * max(0, y2 - y1)
+
+#     # Calculate the area of both bounding boxes
+#     box1_area = (box1[2] - box1[0]) * (box1[3] - box1[1])
+#     box2_area = (box2[2] - box2[0]) * (box2[3] - box2[1])
+
+#     # Calculate IOU
+#     iou = intersection_area / float(box1_area + box2_area - intersection_area)
+
+#     return iou
+
+
+
+
+# def cluster_nms(boxes, scores, eps):
+  
+#     num_boxes = len(boxes)
+#     t = 1
+#     T = num_boxes
+#     bt = np.ones(num_boxes) 
+
+#     ious = np.zeros((num_boxes, num_boxes))
+#     for i in range(num_boxes):
+#         for j in range(i + 1, num_boxes):
+#             ious[i, j] = calculate_iou(boxes[i], boxes[j])
+
+#     ious = np.triu(ious, k=1) 
+
+#     while t <= T:
+#         At = np.diag(bt)
+#         Ct = At.dot(ious)
+
+#         g = np.max(Ct, axis=1)
+#         bt_new = np.where(g < eps, 0, bt)
+
+#         if np.all(bt_new == bt):
+#             t_star = t
+#             break
+
+#         bt = bt_new
+#         t += 1
+
+#     return bt_star
+
+# def calculate_iou(box1, box2):
+
+#     x1, y1, x2, y2 = box1
+#     x3, y3, x4, y4 = box2
+
+#     xi1 = max(x1, x3)
+#     yi1 = max(y1, y3)
+#     xi2 = min(x2, x4)
+#     yi2 = min(y2, y4)
+
+#     inter_width = max(0, xi2 - xi1)
+#     inter_height = max(0, yi2 - yi1)
+
+#     area_inter = inter_width * inter_height
+#     area_box1 = (x2 - x1) * (y2 - y1)
+#     area_box2 = (x4 - x3) * (y4 - y3)
+
+#     iou = area_inter / (area_box1 + area_box2 - area_inter)
+#     return iou
+
+# def cluster_nms(boxes, scores, eps):
+#     num_boxes = len(boxes)
+#     bt = torch.ones(num_boxes)
+
+#     # Calculate IOU matrix using vectorized operations
+#     x1, y1, x2, y2 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+#     x1 = torch.maximum(x1[:, None], x1)
+#     y1 = torch.maximum(y1[:, None], y1)
+#     x2 = torch.minimum(x2[:, None], x2)
+#     y2 = torch.minimum(y2[:, None], y2)
+
+#     # inter_width = torch.maximum(0, x2 - x1)
+#     inter_width = torch.max(torch.zeros_like(x2), x2 - x1)
+#     inter_height = torch.max(torch.zeros_like(x2), y2 - y1)
+#     # inter_height = torch.max(0, y2 - y1)
+
+#     area_inter = inter_width * inter_height
+#     area_box1 = (x2 - x1) * (y2 - y1)
+#     area_box2 = (x2[:, None] - x1[:, None]) * (y2[:, None] - y1[:, None])
+
+#     ious = area_inter / (area_box1 + area_box2 - area_inter)
+
+#     # Upper triangle of the IOU matrix
+#     ious = torch.triu(ious, diagonal=1)
+
+#     while True:
+#         At = torch.diag(bt)
+#         Ct = At.mm(ious)
+
+#         g = torch.max(Ct, dim=1).values
+#         bt_new = torch.where(g < eps, torch.zeros_like(bt), bt)
+
+#         if torch.all(bt_new == bt):
+#             break
+
+#         bt = bt_new
+
+#     return bt
+
+
+
+def cluster_nms(boxes, scores, eps):
+    num_boxes = len(boxes)
+    bt = torch.ones(num_boxes, device=boxes.device)
+
+    # Calculate IOU matrix using vectorized operations
+    x1, y1, x2, y2 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+
+    while True:
+        At = torch.diag(bt)
+        Ct = At @ boxes @ boxes.t()
+
+        g = Ct.max(dim=1).values
+        bt_new = (g >= eps).float()
+
+        if torch.all(bt_new == bt):
+            break
+
+        bt = bt_new
+
+    return bt
+
+# def cluster_nms(boxes, scores, eps):
+#     num_boxes = len(boxes)
+#     bt = torch.ones(num_boxes)
+
+#     # Calculate IOU matrix using vectorized operations
+#     x1, y1, x2, y2 = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+#     x1 = torch.maximum(x1[:, None], x1)
+#     y1 = torch.maximum(y1[:, None], y1)
+#     x2 = torch.minimum(x2[:, None], x2)
+#     y2 = torch.minimum(y2[:, None], y2)
+
+#     # Intersected width and height
+#     inter_width = torch.max(torch.zeros_like(x2), x2 - x1)
+#     inter_height = torch.max(torch.zeros_like(x2), y2 - y1)
+
+#     area_inter = inter_width * inter_height
+#     area_box1 = (x2 - x1) * (y2 - y1)
+#     area_box2 = (x2[:, None] - x1[:, None]) * (y2[:, None] - y1[:, None])
+
+#     ious = area_inter / (area_box1 + area_box2 - area_inter)
+
+#     # Upper triangle of the IOU matrix
+#     ious = torch.triu(ious, diagonal=1)
+
+#     while True:
+#         At = torch.diag(bt)
+#         Ct = At.mm(ious)
+
+#         g = torch.max(Ct, dim=1).values
+#         bt_new = torch.where(g < eps, torch.zeros_like(bt), bt)
+
+#         if torch.all(bt_new == bt):
+#             break
+
+#         bt = bt_new
+
+#     return bt
 
 
 def batched_nms(
@@ -58,7 +259,7 @@ def nms_rotated(boxes: torch.Tensor, scores: torch.Tensor, iou_threshold: float)
     ground truth during training, we should definitely take the angle into account if
     we know the ground truth is labeled with the strictly correct orientation (as in,
     upside-down words are annotated with -180 degrees even though they can be covered
-    with a 0/90/-90 degree box, etc.)
+    with a 0/90/-90 degree box, etc.)cluster_nms
 
     The way the original dataset is annotated also matters. For example, if the dataset
     is a 4-point polygon dataset that does not enforce ordering of vertices/orientation,

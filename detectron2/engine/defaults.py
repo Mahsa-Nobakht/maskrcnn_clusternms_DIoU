@@ -47,6 +47,8 @@ from detectron2.utils.logger import setup_logger
 from . import hooks
 from .train_loop import AMPTrainer, SimpleTrainer, TrainerBase
 
+# from tensorboardX import SummaryWriter
+
 __all__ = [
     "create_ddp_model",
     "default_argument_parser",
@@ -395,6 +397,8 @@ class DefaultTrainer(TrainerBase):
 
         self.register_hooks(self.build_hooks())
 
+        # self.writer = SummaryWriter(log_dir="logs")
+
     def resume_or_load(self, resume=True):
         """
         If `resume==True` and `cfg.OUTPUT_DIR` contains the last checkpoint (defined by
@@ -492,6 +496,13 @@ class DefaultTrainer(TrainerBase):
     def run_step(self):
         self._trainer.iter = self.iter
         self._trainer.run_step()
+        # metrics = super().run_step()
+
+        # Log custom metrics to TensorBoardX
+        # self.writer.add_scalar("custom_loss", metrics["losses"]["total_loss"], self.iter)
+        # Add more custom metrics as needed
+
+        # return metrics
 
     def state_dict(self):
         ret = super().state_dict()

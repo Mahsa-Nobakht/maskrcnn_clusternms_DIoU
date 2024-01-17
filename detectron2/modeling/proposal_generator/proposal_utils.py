@@ -6,6 +6,7 @@ import torch
 
 from detectron2.layers import batched_nms, cat, move_device_like
 from detectron2.structures import Boxes, Instances
+from detectron2.layers.nms import cluster_nms
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ def find_top_rpn_proposals(
     post_nms_topk: int,
     min_box_size: float,
     training: bool,
+    eps: float
 ):
     """
     For each feature map, select the `pre_nms_topk` highest scoring proposals,
@@ -118,7 +120,9 @@ def find_top_rpn_proposals(
         if _is_tracing() or keep.sum().item() != len(boxes):
             boxes, scores_per_img, lvl = boxes[keep], scores_per_img[keep], lvl[keep]
 
-        keep = batched_nms(boxes.tensor, scores_per_img, lvl, nms_thresh)
+        # keep = batched_nms(boxes.tensor, scores_per_img, lvl, nms_thresh)
+        # keep = cluster_nms(boxes.tensor, scores_per_img, nms_thresh)
+        keep = cluster_nms(boxes.tensor, scores_per_img, eps)
         # In Detectron1, there was different behavior during training vs. testing.
         # (https://github.com/facebookresearch/Detectron/issues/459)
         # During training, topk is over the proposals from *all* images in the training batch.
@@ -129,8 +133,10 @@ def find_top_rpn_proposals(
         keep = keep[:post_nms_topk]  # keep is already sorted
 
         res = Instances(image_size)
-        res.proposal_boxes = boxes[keep]
-        res.objectness_logits = scores_per_img[keep]
+        # res.proposal_boxes = boxes[keep]
+        res.proposal_boxes = boxes[keep.long()]
+        # res.objectness_logits = scores_per_img[keep]
+        res.objectness_logits = scores_per_img[keep.long()]
         results.append(res)
     return results
 
